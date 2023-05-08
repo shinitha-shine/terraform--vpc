@@ -1,0 +1,72 @@
+
+
+#connecting to bastion:
+
+[ec2-user@ip-172-31-43-157 vpc_2 default]$ ssh -i zomato-prod-key.pem ec2-user@13.232.151.67
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-63-22 ~]$ ls
+
+# connecting to frontend server from bastion via hostname
+
+[ec2-user@ip-172-16-63-22 ~]$ ssh -i zomato-prod-key.pem ec2-user@frontend_server.shinithavargheese.local
+The authenticity of host 'frontend_server.shinithavargheese.local (172.16.31.79)' can't be established.
+ED25519 key fingerprint is SHA256:/K2h8np3Fuju1lVl5n/i6lN19zO6vqxXIYYGO/6yJXk.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'frontend_server.shinithavargheese.local' (ED25519) to the list of known hosts.
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-31-79 ~]$
+
+
+# connecting to db server from bastion via hostname:
+
+
+[ec2-user@ip-172-16-63-22 ~]$ ssh -i zomato-prod-key.pem ec2-user@db_server.shinithavargheese.local
+The authenticity of host 'db_server.shinithavargheese.local (172.16.121.245)' can't be established.
+ED25519 key fingerprint is SHA256:ypaPE3hZEeVgj7Sszl+b4WN/0RxCKMeGUpzsqK1y0Xg.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added 'db_server.shinithavargheese.local' (ED25519) to the list of known hosts.
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-121-245 ~]$
+
+

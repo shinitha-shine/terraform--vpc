@@ -1,0 +1,19 @@
+provider "aws" {
+  region     = "ap-south-1"
+  access_key = "AKIAZRIJIKRDXLQLJZHF"
+  secret_key = "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"
+}
+
+resource "aws_instance"  "frontend"  {
+
+ami = "ami-0c768662cc797cd75"
+instance_type = "t2.micro"
+key_name = "mumbai_key"
+vpc_security_group_ids = [ "sg-022aee692dc2f8f80" , "sg-0b5629e2499b9bd00" ]
+user_data = file("userdata.sh")
+tags = {
+"Name" = "webserver" ,
+"Project" = "zomato" ,
+"Env" = "prod"
+}
+}

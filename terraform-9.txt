@@ -1,0 +1,665 @@
+#provider.tf:
+
+provider "aws" {
+  region     = var.aws_region
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
+
+  default_tags {
+
+    tags = {
+      "Project" = var.project_name,
+      "Env"     = var.project_environment,
+    }
+  }
+}
+-------------------------------------------------------------------------------------------------------------------------
+
+#variable.tf:
+
+variable "ami_id" {
+
+  description = "ami id of amazon linux"
+  type        = string
+  default     = "ami-0c768662cc797cd75"
+
+}
+
+variable "instance_type" {
+
+  description = "ec2 instance type"
+  type        = string
+  default     = "t2.micro"
+}
+
+variable "project_name" {
+  description = "your project name"
+  type        = string
+  default     = "zomato"
+}
+
+
+variable "project_environment" {
+  description = "project environment"
+  type        = string
+  default     = "prod"
+}
+variable "vpc_cidr" {
+  default = "172.16.0.0/16"
+}
+variable "aws_region" {
+  default = "ap-south-1"
+}
+variable "aws_access_key" {
+  default = "AKIAZRIJIKRDXLQLJZHF"
+}
+variable "aws_secret_key" {
+  default = "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"
+}
+variable "domain_name" {
+  default = "shinithavargheese.online"
+}
+variable "frontend_hostname" {
+  default = "blog"
+}
+variable "private_domain" {
+default = "shinithavargheese.local"
+}
+
+--------------------------------------------------------------------------------------------------------
+#datasource.tf:
+
+data "aws_route53_zone" "frontend" {
+  name         = var.domain_name
+  private_zone = false
+}
+-----------------------------------------------------------------------------------------------------------
+#main.tf:
+
+
+#creating vpc
+
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  instance_tenancy     = "default"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}"
+  }
+}
+
+# creating internet gateway
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}"
+  }
+}
+
+# creating public subnet1
+
+resource "aws_subnet" "public1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 0)
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-public1"
+
+  }
+}
+
+# creating public subnet2
+
+resource "aws_subnet" "public2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 1)
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-public2"
+
+  }
+}
+
+# creating public subnet3
+
+resource "aws_subnet" "public3" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 2)
+  availability_zone       = "${var.aws_region}c"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-public3"
+
+  }
+}
+
+# creating private subnet1
+
+resource "aws_subnet" "private1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 3)
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-private1"
+
+  }
+}
+
+# creating private subnet2
+
+resource "aws_subnet" "private2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 4)
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-private2"
+
+  }
+}
+
+
+# creating private subnet3
+
+resource "aws_subnet" "private3" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 3, 5)
+  availability_zone       = "${var.aws_region}c"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-private3"
+
+  }
+}
+#elastic ip for NAT
+
+resource "aws_eip" "nat" {
+  vpc = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-nat"
+
+  }
+}
+
+#elastic ip for frontend
+
+resource "aws_eip" "frontend" {
+  instance = aws_instance.frontend.id
+  vpc      = true
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-frontend"
+
+  }
+}
+
+
+#natgateway
+
+resource "aws_nat_gateway" "nat" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public1.id
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}"
+
+  }
+  depends_on = [aws_internet_gateway.igw]
+}
+#creating public route table
+
+resource "aws_route_table" "public" {
+
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-public"
+
+  }
+}
+
+#creating private route table
+
+resource "aws_route_table" "private" {
+
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat.id
+  }
+  tags = {
+    Name = "${var.project_name}-${var.project_environment}-private"
+
+  }
+}
+
+#public1 subnet association with public routetable
+
+resource "aws_route_table_association" "public1" {
+  subnet_id      = aws_subnet.public1.id
+  route_table_id = aws_route_table.public.id
+}
+
+#public2 subnet association with public routetable
+
+resource "aws_route_table_association" "public2" {
+  subnet_id      = aws_subnet.public2.id
+  route_table_id = aws_route_table.public.id
+}
+#public3 subnet association with public routetable
+
+resource "aws_route_table_association" "public3" {
+  subnet_id      = aws_subnet.public3.id
+  route_table_id = aws_route_table.public.id
+}
+
+
+#private1 subnet association with private routetable
+
+resource "aws_route_table_association" "private1" {
+  subnet_id      = aws_subnet.private1.id
+  route_table_id = aws_route_table.private.id
+}
+
+
+#private2 subnet association with private routetable
+
+resource "aws_route_table_association" "private2" {
+  subnet_id      = aws_subnet.private2.id
+  route_table_id = aws_route_table.private.id
+}
+
+#private3 subnet association with private routetable
+
+resource "aws_route_table_association" "private3" {
+  subnet_id      = aws_subnet.private3.id
+  route_table_id = aws_route_table.private.id
+}
+# creating sg for bastion
+
+resource "aws_security_group" "bastion" {
+  name_prefix = "${var.project_name}-${var.project_environment}-bastion"
+  description = "allow ssh from myip"
+  vpc_id      = aws_vpc.main.id
+  ingress {
+
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-bastion"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# create frondend sg
+
+resource "aws_security_group" "frontend" {
+  name_prefix = "${var.project_name}-${var.project_environment}-frontend"
+  description = "allow ssh, http, https"
+  vpc_id      = aws_vpc.main.id
+  ingress {
+
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  ingress {
+
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-frontend"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# creating sg for db
+
+resource "aws_security_group" "backend" {
+  name_prefix = "${var.project_name}-${var.project_environment}-backend"
+  description = "allow ssh, mysql"
+  vpc_id      = aws_vpc.main.id
+  ingress {
+
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+  ingress {
+
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.frontend.id]
+  }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-backend"
+  }
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+##---Creation of Key pair and download to local machine--##
+
+resource "tls_private_key" "rsa" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "vpckey" {
+
+  key_name   = "${var.project_name}-${var.project_environment}-key"
+  public_key = tls_private_key.rsa.public_key_openssh
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}",
+  }
+
+}
+resource "local_file" "tf-key" {
+  content  = tls_private_key.rsa.private_key_pem
+  filename = "${var.project_name}-${var.project_environment}-key.pem"
+}
+
+#creating frontend server
+
+resource "aws_instance" "frontend" {
+
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.vpckey.id
+  vpc_security_group_ids = [aws_security_group.frontend.id]
+  subnet_id              = aws_subnet.public1.id
+  user_data              = file("userdata.sh")
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-frontend"
+  }
+}
+
+#creating backend server
+resource "aws_instance" "backend" {
+
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.vpckey.id
+  vpc_security_group_ids = [aws_security_group.backend.id]
+  subnet_id              = aws_subnet.private1.id
+  user_data              = file("db.sh")
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-backend"
+  }
+}
+
+#creating bastion server
+
+resource "aws_instance" "bastion" {
+
+  ami                    = var.ami_id
+  instance_type          = var.instance_type
+  key_name               = aws_key_pair.vpckey.id
+  vpc_security_group_ids = [aws_security_group.bastion.id]
+  subnet_id              = aws_subnet.public2.id
+  tags = {
+    "Name" = "${var.project_name}-${var.project_environment}-bastion"
+  }
+}
+#pointing blog to route53
+
+resource "aws_route53_record" "blog" {
+  zone_id = data.aws_route53_zone.frontend.zone_id
+  name    = var.frontend_hostname
+  type    = "A"
+  ttl     = "300"
+  records = [aws_eip.frontend.public_ip]
+}
+
+#Creating private hosted zone for servers
+
+resource "aws_route53_zone" "private" {
+  name = var.private_domain
+
+  vpc {
+    vpc_id = aws_vpc.main.id
+  }
+}
+
+
+#Adding frontend private ip to private hosted zone
+
+resource "aws_route53_record" "frontend_server" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "frontend_server"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.frontend.private_ip]
+}
+
+#Adding db server  private ip to private hosted zone
+
+resource "aws_route53_record" "db_server" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "db_server"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.backend.private_ip]
+}
+
+#Adding bastion server  private ip to private hosted zone
+
+resource "aws_route53_record" "bastion_server" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "bastion_server"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.bastion.private_ip]
+}
+
+----------------------------------------------------------------------------------------------------
+#output.tf:
+
+
+output "frontend_pubip" {
+  value = aws_eip.frontend.public_ip
+}
+output "frontend_privateip" {
+  value = aws_instance.frontend.private_ip
+}
+output "backend_pubip" {
+  value = aws_instance.backend.public_ip
+}
+output "backend_privateip" {
+  value = aws_instance.backend.private_ip
+}
+output "bastion_private_ip" {
+  value = aws_instance.bastion.private_ip
+}
+output "frontend_url" {
+  value = "http://${var.frontend_hostname}.${var.domain_name}"
+}
+
+-------------------------------------------------------------------------------------------------------------------
+userdata: frontend:
+------------------------------
+#!/bin/bash
+ 
+ 
+echo "ClientAliveInterval 60" >> /etc/ssh/sshd_config
+echo "LANG=en_US.utf-8" >> /etc/environment
+echo "LC_ALL=en_US.utf-8" >> /etc/environment
+service sshd restart
+ 
+yum install httpd -y
+systemctl restart httpd.service
+systemctl enable httpd.service
+-------------------------------------------------------------
+userdata: backend:
+---------------------------------------------
+#!/bin/bash
+
+
+echo "ClientAliveInterval 60" >> /etc/ssh/sshd_config
+echo "LANG=en_US.utf-8" >> /etc/environment
+echo "LC_ALL=en_US.utf-8" >> /etc/environment
+systemctl restart sshd.service
+
+sudo yum install mariadb105-server -y
+sudo systemctl restart mariadb.service
+sudo systemctl enable mariadb.service
+---------------------------------------------------------------------------------------------------------------
+#terraform output:
+
+
+[ec2-user@ip-172-31-43-157 vpc_2 default]$ terraform output
+backend_privateip = "172.16.109.29"
+backend_pubip = "3.110.184.57"
+bastion_private_ip = "172.16.38.24"
+frontend_privateip = "172.16.2.55"
+frontend_pubip = "43.204.151.73"
+frontend_url = "http://blog.shinithavargheese.online"
+[ec2-user@ip-172-31-43-157 vpc_2 default]$ sudo chmod 400 zomato-prod-key.pem
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+#connecting to bastion server:
+
+[ec2-user@ip-172-31-43-157 vpc_2 default]$ ssh -i zomato-prod-key.pem ec2-user@13.232.26.76
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-38-24 ~]$
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+#connecting to frontend server:
+
+
+[ec2-user@ip-172-16-38-24 ~]$ ssh -i zomato-prod-key.pem ec2-user@172.16.2.55
+The authenticity of host '172.16.2.55 (172.16.2.55)' can't be established.
+ED25519 key fingerprint is SHA256:zrj5nGgG8Q5oBr0D6cE6XCxZEVG3EuKVvvArEf80QMA.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '172.16.2.55' (ED25519) to the list of known hosts.
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-2-55 ~]$ sudo systemctl status httpd
+● httpd.service - The Apache HTTP Server
+     Loaded: loaded (/usr/lib/systemd/system/httpd.service; enabled; preset: disabled)
+     Active: active (running) since Sat 2023-05-06 09:57:39 UTC; 14min ago
+       Docs: man:httpd.service(8)
+   Main PID: 3034 (httpd)
+     Status: "Total requests: 1; Idle/Busy workers 100/0;Requests/sec: 0.00114; Bytes served/sec:   0 B/sec"
+      Tasks: 177 (limit: 1112)
+     Memory: 12.9M
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+#connecting to backend server from bastion:
+
+[ec2-user@ip-172-16-38-24 ~]$ ssh -i zomato-prod-key.pem ec2-user@172.16.109.29
+The authenticity of host '172.16.109.29 (172.16.109.29)' can't be established.
+ED25519 key fingerprint is SHA256:8gvAZzTC6nFU74MEBG8XS8PCbwWRQRXzN2XW0qhzqfM.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '172.16.109.29' (ED25519) to the list of known hosts.
+
+A newer release of "Amazon Linux" is available.
+  Version 2023.0.20230503:
+Run "/usr/bin/dnf check-release-update" for full release and version update info
+   ,     #_
+   ~\_  ####_        Amazon Linux 2023
+  ~~  \_#####\
+  ~~     \###|
+  ~~       \#/ ___   https://aws.amazon.com/linux/amazon-linux-2023
+   ~~       V~' '->
+    ~~~         /
+      ~~._.   _/
+         _/ _/
+       _/m/'
+[ec2-user@ip-172-16-109-29 ~]$ sudo systemctl status mariadb.service
+● mariadb.service - MariaDB 10.5 database server
+     Loaded: loaded (/usr/lib/systemd/system/mariadb.service; enabled; preset: disabled)
+     Active: active (running) since Sat 2023-05-06 09:59:09 UTC; 14min ago
+       Docs: man:mariadbd(8)
+             https://mariadb.com/kb/en/library/systemd/
+   Main PID: 6197 (mariadbd)
+     Status: "Taking your SQL requests now..."
+      Tasks: 8 (limit: 1112)
+     Memory: 66.0M
+
+

@@ -1,0 +1,155 @@
+main.tf
+--------------------------------------------------------------------------------------------------
+
+#creating key pair
+
+resource "aws_key_pair" "mykey" {
+  key_name   = "zomato-key"
+  public_key = file("zomato-key.pub")
+  tags = {
+    "Name"    = "zomato",
+    "Project" = "zomato",
+    "Env"     = "dev"
+  }
+}
+
+#creating sg
+
+resource "aws_security_group" "web_traffic" {
+  name        = "zomato-webserver"
+  description = "Allow http & https traffic"
+
+  ingress {
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  ingress {
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  ingress {
+    from_port        = 8080
+    to_port          = 8080
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name      = "zomato-webserver",
+    "Project" = "zomato",
+    "Env"     = "dev"
+  }
+}
+
+resource "aws_security_group" "web_remote" {
+  name        = "zomato-remote"
+  description = "Allow ssh access"
+
+  ingress {
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name      = "zomato-remote",
+    "Project" = "zomato",
+    "Env"     = "dev"
+  }
+}
+
+#create instance
+
+resource "aws_instance" "frontend" {
+
+  ami                    = "ami-0c768662cc797cd75"
+  instance_type          = "t2.micro"
+  key_name               = aws_key_pair.mykey.key_name
+  vpc_security_group_ids = [aws_security_group.web_traffic.id, aws_security_group.web_remote.id]
+  user_data              = file("userdata.sh")
+  tags = {
+    "Name"    = "webserver",
+    "Project" = "zomato",
+    "Env"     = "prod"
+  }
+}
+
+-----------------------------------------------------------------
+Variable.tf:
+-----------------------------------------------------------
+variable "ami_id" {
+  description = "ami id for instance"
+  default     = "ami-0c768662cc797cd75"
+  type        = string
+}
+
+variable "instance_type" {
+  description = "instance type for instance"
+  default     = "t2.small"
+  type        = string
+}
+---------------------------------------------------------------------
+output.tf:
+---------------------------------------------------------------------
+output "webserver_publicip" {
+value = aws_instance.frontend.public_ip
+}
+output "webserver_privateip" {
+value = aws_instance.frontend.private_ip
+}
+
+output "webserver_httpurl" {
+value = "http://${aws_instance.frontend.public_dns}"
+}
+---------------------------------------------------------------------------------------------------
+userdata.sh:
+---------------------------------------------------------------------------------------------------
+#!/bin/bash
+
+
+echo "ClientAliveInterval 60" >> /etc/ssh/sshd_config
+echo "LANG=en_US.utf-8" >> /etc/environment
+echo "LC_ALL=en_US.utf-8" >> /etc/environment
+systemctl restart sshd.service
+
+
+yum install httpd php -y
+
+cat <<EOF > /var/www/html/index.php
+<?php
+\$output = shell_exec('echo $HOSTNAME');
+echo "<h1><center><pre>\$output</pre></center></h1>";
+echo "<h1><center>Terraform class</center></h1>"
+?>
+EOF
+
+systemctl restart httpd.service php-fpm.service
+systemctl enable httpd.service php-fpm.service
+
+

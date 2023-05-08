@@ -1,0 +1,11 @@
+nano ~/.bashrc
+
+
+PS1='[\u@\h \W $(terraform workspace show)]\$ '
+source ~/.bashrc
+
+Administrator
+
+ec2-13-232-193-25.ap-south-1.compute.amazonaws.com
+
+KpeNV1i0fOQMQ6raat.tq7w.uO134TxD
